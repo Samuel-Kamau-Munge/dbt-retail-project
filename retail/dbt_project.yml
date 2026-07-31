@@ -1,0 +1,74 @@
+name: 'retail'
+version: '1.0.0'
+config-version: 2
+
+profile: 'retail'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+  - "logs"
+
+vars:
+  batch_id: "{{ invocation_id }}"
+  current_batch_date: "{{ run_started_at.strftime('%Y-%m-%d') }}"
+
+seeds:
+  retail:
+    +schema: retail_staging
+    +quote_columns: false
+
+models:
+  retail:
+    staging:
+      +schema: retail_staging
+      +materialized: view
+      +tags: ['staging', 'daily']
+      +docs:
+        node_color: "blue"
+
+    warehouse:
+      +schema: retail_warehouse
+      +materialized: table
+      +tags: ['warehouse', 'daily']
+      +docs:
+        node_color: "green"
+      dim_*:
+        +tags: ['dimension']
+      fct_*:
+        +tags: ['fact']
+
+    marts:
+      +schema: retail_analytics
+      +materialized: table
+      +tags: ['marts', 'analytics', 'daily']
+      +docs:
+        node_color: "purple"
+
+    tableau:
+      +schema: retail_analytics
+      +materialized: view
+      +tags: ['tableau', 'reporting']
+      +docs:
+        node_color: "orange"
+
+snapshots:
+  retail:
+    +schema: retail_warehouse
+    +target_schema: retail_warehouse
+    +strategy: timestamp
+    +updated_at: updated_at
+
+tests:
+  retail:
+    +severity: warn
+    +store_failures: true
+    +schema: dbt_test_failures

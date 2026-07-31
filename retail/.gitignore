@@ -1,0 +1,12 @@
+target/
+dbt_packages/
+logs/
+.env
+.env.*
+profiles.yml
+__pycache__/
+*.pyc
+*.pyo
+*.log
+packages.yml.lock
+.partial-parse/

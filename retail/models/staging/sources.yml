@@ -1,0 +1,139 @@
+version: 2
+
+sources:
+  - name: retail_raw
+    description: "Raw landing tables in retail_staging, minimal transformation"
+    schema: retail_staging
+    loader: manual_sql_ingestion
+    meta:
+      owner: data-engineering
+      layer: raw_staging
+
+    tables:
+      - name: raw_customers
+        tags: ['customers', 'pii']
+        meta:
+          primary_key: customer_id
+          loaded_at_field: _extracted_at
+        columns:
+          - name: customer_id
+            tests: [not_null]
+          - name: customer_unique_id
+            description: "Anonymous customer ID"
+          - name: _row_id
+            description: "Auto-incrementing surrogate row ID"
+          - name: _extracted_at
+            description: "Row extraction timestamp"
+            tests: [not_null]
+
+      - name: raw_products
+        tags: ['products']
+        meta:
+          primary_key: product_id
+          loaded_at_field: _extracted_at
+        columns:
+          - name: product_id
+            tests: [not_null]
+          - name: supplier_id
+          - name: _extracted_at
+            tests: [not_null]
+
+      - name: raw_orders
+        tags: ['orders', 'transactions']
+        meta:
+          primary_key: order_id
+          loaded_at_field: _extracted_at
+        columns:
+          - name: order_id
+            tests: [not_null]
+          - name: customer_id
+          - name: order_status
+          - name: _extracted_at
+            tests: [not_null]
+
+      - name: raw_order_items
+        description: "One row per product per order"
+        tags: ['orders', 'transactions', 'line-items']
+        meta:
+          primary_key: (order_id, order_item_id, product_id)
+          loaded_at_field: _extracted_at
+        columns:
+          - name: order_id
+            tests: [not_null]
+          - name: order_item_id
+          - name: product_id
+          - name: _extracted_at
+            tests: [not_null]
+
+      - name: raw_payments
+        description: "Payment transactions linked to orders"
+        tags: ['payments', 'finance']
+        meta:
+          primary_key: payment_id
+          loaded_at_field: _extracted_at
+        columns:
+          - name: payment_id
+            tests: [not_null]
+          - name: order_id
+          - name: _extracted_at
+            tests: [not_null]
+
+      - name: raw_inventory
+        description: "Inventory snapshots per product per warehouse"
+        tags: ['inventory', 'operations']
+        meta:
+          primary_key: inventory_id
+          loaded_at_field: _extracted_at
+        columns:
+          - name: inventory_id
+            tests: [not_null]
+          - name: product_id
+          - name: _extracted_at
+            tests: [not_null]
+
+      - name: raw_suppliers
+        tags: ['suppliers', 'vendors']
+        meta:
+          primary_key: supplier_id
+          loaded_at_field: _extracted_at
+        columns:
+          - name: supplier_id
+            tests: [not_null]
+          - name: _extracted_at
+            tests: [not_null]
+
+      - name: raw_returns
+        description: "Return records with reasons and refunds"
+        tags: ['returns', 'refunds']
+        meta:
+          primary_key: return_id
+          loaded_at_field: _extracted_at
+        columns:
+          - name: return_id
+            tests: [not_null]
+          - name: order_id
+          - name: product_id
+          - name: _extracted_at
+            tests: [not_null]
+
+      - name: raw_reviews
+        description: "Customer review records and scores"
+        tags: ['reviews', 'customer-experience']
+        meta:
+          primary_key: review_id
+          loaded_at_field: _extracted_at
+        columns:
+          - name: review_id
+            tests: [not_null]
+          - name: order_id
+
+      - name: raw_sellers
+        tags: ['sellers', 'marketplace']
+        meta:
+          primary_key: seller_id
+          loaded_at_field: _extracted_at
+        columns:
+          - name: seller_id
+            tests: [not_null]
+          - name: _extracted_at
+            tests: [not_null]

@@ -1,0 +1,161 @@
+version: 2
+
+models:
+  - name: daily_sales
+    description: >
+      Daily sales mart aggregating revenue, orders, items sold, and customer counts
+      by sale date and product category. Primary source for sales dashboard.
+    tags: ['mart', 'sales', 'daily']
+    meta:
+      owner: analytics-engineering
+    columns:
+      - name: sale_date
+        description: Calendar date of the sale
+        tests: [not_null]
+      - name: product_category
+        tests: [not_null]
+      - name: total_orders
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: total_items_sold
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: total_revenue
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: total_freight
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: avg_order_value
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - sale_date
+            - product_category
+
+  - name: monthly_kpi
+    description: >
+      Monthly top-level business KPIs including revenue, costs, margins, order volume,
+      customer metrics, and delivery performance. One row per month.
+    tags: ['mart', 'kpi', 'monthly', 'executive']
+    columns:
+      - name: year_num
+        tests: [not_null]
+      - name: month_num
+        tests: [not_null]
+      - name: month_name
+        tests: [not_null]
+      - name: total_revenue
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: gross_profit
+      - name: gross_margin_pct
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "between -100 and 100"
+              config:
+                severity: warn
+      - name: total_orders
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: delivered_rate
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+              config:
+                severity: warn
+      - name: canceled_rate
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 1"
+              config:
+                severity: warn
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - year_num
+            - month_num
+
+  - name: customer_lifetime_value
+    description: >
+      Per-customer lifetime value analysis. Customer purchase history, segments,
+      and CLV scoring based on total spend and order frequency.
+    tags: ['mart', 'customers', 'clv', 'marketing']
+    columns:
+      - name: customer_key
+        tests: [unique, not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: customer_name
+      - name: customer_segment
+      - name: total_orders
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: total_spent
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: clv_score
+        description: Heuristic CLV score = total_spent * (1 + 0.1*total_orders)
+      - name: order_frequency_segment
+        tests:
+          - accepted_values:
+              values: ['VIP', 'Loyal', 'Repeat', 'One-Time']
+              quote: true
+      - name: is_active_recent
+        tests: [accepted_values: { values: [true, false] }]
+
+  - name: inventory_turnover
+    description: >
+      Inventory turnover analysis by product. Identifies overstocked and understocked
+      products with turnover ratio and days on hand calculations.
+    tags: ['mart', 'inventory', 'operations']
+    columns:
+      - name: product_key
+        tests: [unique, not_null]
+      - name: product_id
+        tests: [not_null]
+      - name: avg_quantity_on_hand
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: total_units_sold
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: turnover_ratio
+        description: total_units_sold / avg_quantity_on_hand
+      - name: turnover_days
+        description: 365 / turnover_ratio
+      - name: current_stock_value
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: is_overstocked
+        tests: [accepted_values: { values: [true, false] }]
+      - name: is_understocked
+        tests: [accepted_values: { values: [true, false] }]

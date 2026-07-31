@@ -1,0 +1,19 @@
+-- DROP SCHEMA IF EXISTS retail_quarantine CASCADE;
+-- DROP SCHEMA IF EXISTS retail_analytics CASCADE;
+-- DROP SCHEMA IF EXISTS retail_warehouse CASCADE;
+-- DROP SCHEMA IF EXISTS retail_staging CASCADE;
+
+CREATE SCHEMA IF NOT EXISTS retail_staging AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS retail_warehouse AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS retail_analytics AUTHORIZATION postgres;
+CREATE SCHEMA IF NOT EXISTS retail_quarantine AUTHORIZATION postgres;
+
+GRANT USAGE ON SCHEMA retail_staging TO postgres;
+GRANT USAGE ON SCHEMA retail_warehouse TO postgres;
+GRANT USAGE ON SCHEMA retail_analytics TO postgres;
+GRANT USAGE ON SCHEMA retail_quarantine TO postgres;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA retail_staging GRANT ALL ON TABLES TO postgres;
+ALTER DEFAULT PRIVILEGES IN SCHEMA retail_warehouse GRANT ALL ON TABLES TO postgres;
+ALTER DEFAULT PRIVILEGES IN SCHEMA retail_analytics GRANT ALL ON TABLES TO postgres;
+ALTER DEFAULT PRIVILEGES IN SCHEMA retail_quarantine GRANT ALL ON TABLES TO postgres;

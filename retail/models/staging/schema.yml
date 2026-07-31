@@ -1,0 +1,265 @@
+version: 2
+
+models:
+  - name: stg_customers
+    description: >
+      Cleaned and deduplicated customer staging view. Types are cast from raw TEXT,
+      strings are trimmed and cleaned, dates are parsed safely. Duplicate customer_ids
+      are resolved taking the latest extracted row.
+    tags: ['staging', 'customers']
+    columns:
+      - name: customer_id
+        description: Primary key, cast to INTEGER
+        tests:
+          - unique
+          - not_null
+      - name: customer_unique_id
+        description: Anonymous customer unique ID
+      - name: customer_city
+        tests:
+          - not_null
+      - name: customer_state
+        tests:
+          - not_null
+      - name: registration_date
+        description: Customer registration date (DATE)
+      - name: birth_date
+        description: Customer date of birth (DATE)
+      - name: email
+        description: Contact email address
+      - name: gender
+        tests:
+          - accepted_values:
+              values: ['M', 'F', 'O', 'Male', 'Female', 'Other', '']
+              quote: true
+              config:
+                severity: warn
+      - name: customer_segment
+        tests:
+          - accepted_values:
+              values: ['Consumer', 'Corporate', 'Home Office', 'Small Business', 'Enterprise', '']
+              quote: true
+              config:
+                severity: warn
+      - name: dbt_scd_id
+        description: SCD surrogate hash for SCD Type 2 tracking
+        tests: [not_null]
+
+  - name: stg_products
+    description: >
+      Cleaned product catalog staging view. Dimensions and financial fields are cast to NUMERIC.
+    tags: ['staging', 'products']
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+      - name: product_category
+        tests: [not_null]
+      - name: unit_price
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: unit_cost
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: product_status
+        tests:
+          - accepted_values:
+              values: ['Active', 'Inactive', 'Discontinued', 'Out of Stock', '']
+              quote: true
+              config:
+                severity: warn
+      - name: supplier_id
+      - name: dbt_scd_id
+        tests: [not_null]
+
+  - name: stg_orders
+    description: >
+      Cleaned order headers. All 5 timestamp columns are parsed safely from TEXT
+      with regex-based format detection.
+    tags: ['staging', 'orders']
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: order_status
+        tests:
+          - accepted_values:
+              values: ['created', 'approved', 'processing', 'shipped', 'delivered', 'invoiced', 'canceled', 'unavailable']
+              quote: true
+              config:
+                severity: warn
+      - name: order_purchase_ts
+        tests: [not_null]
+      - name: payment_type
+        tests:
+          - accepted_values:
+              values: ['credit_card', 'debit_card', 'voucher', 'boleto', 'bank_transfer', 'check', 'coupon', 'cash', '']
+              quote: true
+              config:
+                severity: warn
+      - name: payment_value
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: freight_value
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: dbt_scd_id
+        tests: [not_null]
+
+  - name: stg_order_items
+    description: >
+      Cleaned order line items. Deduplicated by composite key order_id + order_item_id + product_id.
+    tags: ['staging', 'orders', 'line-items']
+    columns:
+      - name: order_id
+        tests: [not_null]
+      - name: order_item_id
+        tests: [not_null]
+      - name: product_id
+        tests: [not_null]
+      - name: quantity
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                severity: warn
+      - name: price
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: freight_value
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: dbt_scd_id
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - order_id
+            - order_item_id
+            - product_id
+
+  - name: stg_payments
+    description: Cleaned payment transaction records.
+    tags: ['staging', 'payments', 'finance']
+    columns:
+      - name: payment_id
+        tests: [unique, not_null]
+      - name: order_id
+        tests: [not_null]
+      - name: payment_type
+        tests:
+          - accepted_values:
+              values: ['credit_card', 'debit_card', 'voucher', 'boleto', 'bank_transfer', 'check', 'coupon', 'cash', '']
+              quote: true
+              config:
+                severity: warn
+      - name: payment_value
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: payment_status
+        tests:
+          - accepted_values:
+              values: ['Paid', 'Pending', 'Failed', 'Refunded', 'Chargedback', 'Cancelled', '']
+              quote: true
+              config:
+                severity: warn
+      - name: dbt_scd_id
+        tests: [not_null]
+
+  - name: stg_inventory
+    description: Cleaned inventory snapshot records.
+    tags: ['staging', 'inventory']
+    columns:
+      - name: inventory_id
+        tests: [unique, not_null]
+      - name: product_id
+        tests: [not_null]
+      - name: quantity_on_hand
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: quantity_reserved
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: dbt_scd_id
+        tests: [not_null]
+
+  - name: stg_suppliers
+    description: Cleaned supplier / vendor master data.
+    tags: ['staging', 'suppliers', 'vendors']
+    columns:
+      - name: supplier_id
+        tests: [unique, not_null]
+      - name: supplier_name
+        tests: [not_null]
+      - name: supplier_status
+        tests:
+          - accepted_values:
+              values: ['Active', 'Inactive', 'Pending', 'Suspended', 'Terminated', '']
+              quote: true
+              config:
+                severity: warn
+      - name: dbt_scd_id
+        tests: [not_null]
+
+  - name: stg_returns
+    description: Cleaned product return records.
+    tags: ['staging', 'returns']
+    columns:
+      - name: return_id
+        tests: [unique, not_null]
+      - name: order_id
+        tests: [not_null]
+      - name: product_id
+        tests: [not_null]
+      - name: return_quantity
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                severity: warn
+      - name: refund_amount
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      - name: return_status
+        tests:
+          - accepted_values:
+              values: ['Requested', 'Approved', 'Received', 'Refunded', 'Rejected', 'Closed', '']
+              quote: true
+              config:
+                severity: warn
+      - name: dbt_scd_id
+        tests: [not_null]

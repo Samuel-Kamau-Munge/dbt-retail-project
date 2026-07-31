@@ -1,0 +1,247 @@
+version: 2
+
+metrics:
+
+  # ============================================================
+  # Revenue Metrics
+  # ============================================================
+
+  - name: total_revenue
+    label: Total Revenue
+    model: ref('fct_order_items')
+    description: "Gross revenue from product sales (price * quantity)"
+    calculation_method: sum
+    expression: line_total
+    timestamp: ship_date_key
+    time_grains: [day, week, month, quarter, year]
+    dimensions:
+      - product_key
+      - order_key
+    meta:
+      category: Revenue
+      owner: analytics-engineering
+
+  - name: total_freight_revenue
+    label: Total Freight Revenue
+    model: ref('fct_order_items')
+    description: "Freight charges collected on orders"
+    calculation_method: sum
+    expression: line_freight_total
+    timestamp: ship_date_key
+    time_grains: [day, week, month, quarter, year]
+    dimensions:
+      - product_key
+    meta:
+      category: Revenue
+      owner: analytics-engineering
+
+  - name: average_order_value
+    label: Average Order Value (AOV)
+    model: ref('fct_orders')
+    description: "Average payment value per order"
+    calculation_method: average
+    expression: payment_value
+    timestamp: order_date_key
+    time_grains: [day, week, month, quarter, year]
+    dimensions: []
+    meta:
+      category: Revenue
+
+  # ============================================================
+  # Order Volume Metrics
+  # ============================================================
+
+  - name: total_orders
+    label: Total Orders
+    model: ref('fct_orders')
+    description: "Count of unique orders"
+    calculation_method: count_distinct
+    expression: order_id
+    timestamp: order_date_key
+    time_grains: [day, week, month, quarter, year]
+    dimensions:
+      - is_delivered
+      - is_canceled
+    meta:
+      category: Order Volume
+
+  - name: total_items_sold
+    label: Total Items Sold
+    model: ref('fct_order_items')
+    description: "Total unit quantity sold across all orders"
+    calculation_method: sum
+    expression: quantity
+    timestamp: ship_date_key
+    time_grains: [day, week, month, quarter, year]
+    dimensions:
+      - product_key
+    meta:
+      category: Order Volume
+
+  - name: canceled_orders
+    label: Canceled Orders
+    model: ref('fct_orders')
+    description: "Count of orders with status canceled"
+    calculation_method: count_distinct
+    expression: order_id
+    timestamp: order_date_key
+    time_grains: [day, week, month, quarter, year]
+    filters:
+      - field: is_canceled
+        operator: '='
+        value: 'true'
+    meta:
+      category: Order Volume
+
+  - name: delivered_orders
+    label: Delivered Orders
+    model: ref('fct_orders')
+    description: "Count of successfully delivered orders"
+    calculation_method: count_distinct
+    expression: order_id
+    timestamp: order_date_key
+    time_grains: [day, week, month, quarter, year]
+    filters:
+      - field: is_delivered
+        operator: '='
+        value: 'true'
+    meta:
+      category: Order Volume
+
+  # ============================================================
+  # Customer Metrics
+  # ============================================================
+
+  - name: active_customers
+    label: Active Customers
+    model: ref('fct_orders')
+    description: "Unique customers who placed at least one order in the period"
+    calculation_method: count_distinct
+    expression: customer_id
+    timestamp: order_date_key
+    time_grains: [day, week, month, quarter, year]
+    meta:
+      category: Customers
+
+  - name: new_customers
+    label: New Customers (First Order)
+    model: ref('customer_lifetime_value')
+    description: "Customers whose first order date falls in the period"
+    calculation_method: count_distinct
+    expression: customer_id
+    timestamp: first_order_date
+    time_grains: [day, week, month, quarter, year]
+    meta:
+      category: Customers
+
+  - name: total_clv_score
+    label: Total CLV Score
+    model: ref('customer_lifetime_value')
+    description: "Sum of heuristic CLV scores (for dashboard reference)"
+    calculation_method: sum
+    expression: clv_score
+    timestamp: last_order_date
+    time_grains: [month, quarter, year]
+    dimensions:
+      - order_frequency_segment
+      - customer_segment
+    meta:
+      category: Customers
+
+  # ============================================================
+  # Operations & Delivery Metrics
+  # ============================================================
+
+  - name: avg_delivery_time_days
+    label: Average Delivery Time (Days)
+    model: ref('fct_orders')
+    description: "Average days from purchase to customer delivery (delivered orders only)"
+    calculation_method: average
+    expression: delivery_time_days
+    timestamp: order_date_key
+    time_grains: [day, week, month, quarter, year]
+    filters:
+      - field: is_delivered
+        operator: '='
+        value: 'true'
+    meta:
+      category: Operations
+
+  - name: on_time_delivery_rate
+    label: On-Time Delivery Rate
+    model: ref('fct_orders')
+    description: "Ratio of orders delivered <= estimated delivery date (delivered orders only)"
+    calculation_method: derived
+    expression: "delivered_orders_on_time / delivered_orders_total"
+    timestamp: order_date_key
+    time_grains: [day, week, month, quarter, year]
+    meta:
+      category: Operations
+
+  # ============================================================
+  # Inventory Metrics
+  # ============================================================
+
+  - name: inventory_value_at_cost
+    label: Inventory Value at Cost
+    model: ref('inventory_turnover')
+    description: "Total current inventory valued at unit cost"
+    calculation_method: sum
+    expression: current_stock_value
+    timestamp: last_count_date
+    time_grains: [day, week, month, quarter, year]
+    dimensions:
+      - product_category
+      - inventory_segment
+    meta:
+      category: Inventory
+
+  - name: inventory_value_at_retail
+    label: Inventory Value at Retail
+    model: ref('inventory_turnover')
+    description: "Total current inventory valued at selling unit price"
+    calculation_method: sum
+    expression: current_revenue_value
+    timestamp: last_count_date
+    time_grains: [day, week, month, quarter, year]
+    dimensions:
+      - product_category
+    meta:
+      category: Inventory
+
+  - name: overstocked_products
+    label: Overstocked Products
+    model: ref('inventory_turnover')
+    description: "Count of products flagged as overstocked (turnover_days > 90 or ratio < 4)"
+    calculation_method: count
+    expression: "CASE WHEN is_overstocked THEN 1 ELSE NULL END"
+    timestamp: last_count_date
+    time_grains: [day, week, month]
+    meta:
+      category: Inventory
+
+  - name: understocked_products
+    label: Understocked Products
+    model: ref('inventory_turnover')
+    description: "Count of products flagged as understocked (qty_on_hand <= reorder_point)"
+    calculation_method: count
+    expression: "CASE WHEN is_understocked THEN 1 ELSE NULL END"
+    timestamp: last_count_date
+    time_grains: [day, week, month]
+    meta:
+      category: Inventory
+
+  # ============================================================
+  # Derived Metrics (ratios, rates, percentages)
+  # ============================================================
+
+  - name: gross_margin_pct
+    label: Gross Margin %
+    model: ref('monthly_kpi')
+    description: "Gross profit / total revenue * 100"
+    calculation_method: average
+    expression: gross_margin_pct
+    timestamp: month_start_date
+    time_grains: [month, quarter, year]
+    meta:
+      category: Financial

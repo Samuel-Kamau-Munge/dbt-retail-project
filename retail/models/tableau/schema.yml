@@ -1,0 +1,92 @@
+version: 2
+
+models:
+  - name: tableau_sales_dashboard
+    description: >
+      Tableau-ready view combining daily sales with date dimensions.
+      Primary data source for the Executive Sales Dashboard in Tableau.
+    tags: ['tableau', 'sales', 'reporting']
+    meta:
+      owner: business-intelligence
+      tableau_refresh: daily_2am
+    columns:
+      - name: sale_date
+        tests: [not_null]
+      - name: product_category
+        tests: [not_null]
+      - name: year_actual
+      - name: quarter_name
+      - name: month_name
+      - name: day_name
+      - name: weekend_indr
+      - name: total_revenue
+      - name: total_orders
+
+  - name: tableau_monthly_performance
+    description: >
+      Tableau-ready view of monthly KPIs. Time-series optimized for line charts,
+      trend lines, and MOM / YOY comparisons in Tableau.
+    tags: ['tableau', 'kpi', 'monthly', 'reporting']
+    columns:
+      - name: year_num
+        tests: [not_null]
+      - name: month_num
+        tests: [not_null]
+      - name: mmyyyy
+      - name: month_start_date
+      - name: total_revenue
+      - name: gross_profit
+      - name: gross_margin_pct
+      - name: total_orders
+      - name: delivered_rate
+
+  - name: tableau_customer_analytics
+    description: >
+      Tableau-ready customer analytics view. Segments customers by CLV tiers and
+      tenure for targeted marketing campaigns in Tableau.
+    tags: ['tableau', 'customers', 'clv', 'reporting']
+    columns:
+      - name: customer_key
+        tests: [unique, not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: customer_name
+      - name: customer_segment
+      - name: order_frequency_segment
+      - name: clv_segment
+        tests:
+          - accepted_values:
+              values: ['Platinum', 'Gold', 'Silver', 'Bronze']
+              quote: true
+              config:
+                severity: warn
+      - name: tenure_segment
+        tests:
+          - accepted_values:
+              values: ['Long-Term', 'Mid-Term', 'New']
+              quote: true
+              config:
+                severity: warn
+      - name: is_active_recent
+
+  - name: tableau_inventory_view
+    description: >
+      Tableau-ready inventory health view. Identifies stock issues with
+      color-coded inventory segments for the Operations Dashboard.
+    tags: ['tableau', 'inventory', 'operations', 'reporting']
+    columns:
+      - name: product_key
+        tests: [unique, not_null]
+      - name: product_id
+        tests: [not_null]
+      - name: product_category
+      - name: inventory_segment
+        tests:
+          - accepted_values:
+              values: ['Overstocked', 'Understocked', 'Optimal']
+              quote: true
+              config:
+                severity: warn
+      - name: turnover_ratio
+      - name: turnover_days
+      - name: current_stock_value
